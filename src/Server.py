@@ -1,10 +1,10 @@
-import socket
+from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, gethostbyname, gethostname, socket
 import struct
 import threading
 import time
-import PacketHandler
-import BlackjackGame
-import Constants
+from PacketHandler import PacketHandler
+from BlackjackGame import BlackjackGame
+from Constants import Constants
 
 
 class Server:
@@ -13,12 +13,12 @@ class Server:
     """
     def __init__(self, team_name: str):
         self.team_name = team_name
-        self.tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.tcp_sock = socket(AF_INET, SOCK_STREAM)
         self.tcp_sock.bind(('', 0)) # Bind to any free port provided by the OS
         self.tcp_port = self.tcp_sock.getsockname()[1]
         self.tcp_sock.listen(10) #how much? 15?
         self.is_active = True
-        self.ip= socket.gethostbyname(socket.gethostname())
+        self.ip= gethostbyname(gethostname())
 
     def start(self):
         print(f"Server started, listening on IP address {self.ip}")
@@ -38,8 +38,8 @@ class Server:
         """
         Broadcasts UDP packets every 1 second to announce server availability
         """
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
-            udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)  #to reach all clients on the local network
+        with socket(AF_INET, SOCK_DGRAM) as udp:
+            udp.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)  #to reach all clients on the local network
             packet = PacketHandler.pack_offer(self.tcp_port, self.team_name)
             while self.is_active:
                 try:
@@ -49,7 +49,7 @@ class Server:
                     print(f"UDP broadcast error: {e}")
                     break
 
-    def handle_player(self, conn: socket.socket):
+    def handle_player(self, conn: socket):
         """
         Manages the game session for a single connected client.
         """
@@ -68,7 +68,7 @@ class Server:
         finally:
             conn.close()
 
-    def run_round(self, conn: socket.socket):
+    def run_round(self, conn: socket):
         """
         Implements the main Blackjack round flow.
         """
