@@ -3,7 +3,6 @@ import struct
 import threading
 import time
 import PacketHandler
-import random
 import BlackjackGame
 import Constants
 
@@ -53,16 +52,12 @@ class Server:
     def handle_player(self, conn: socket.socket):
         """
         Manages the game session for a single connected client.
-        1. Unpacks the initial Request packet.
-        2. Executes the requested number of game rounds.
-        3. Handles network timeouts and graceful disconnection.
         """
         try:
             conn.settimeout(10.0)
             data = conn.recv(1024)
             # Unpacking logic for Request (Magic, Type, Rounds, Name)
-            magic, m_type, rounds, name = struct.unpack('>IBB32s', data)
-            client_name = name.decode('utf-8').strip('\x00')
+            magic, m_type, rounds, client_name = PacketHandler.unpack_request(data)
             print(f"Connection established with team: {client_name}")
 
             for _ in range(rounds):
@@ -76,8 +71,6 @@ class Server:
     def run_round(self, conn: socket.socket):
         """
         Implements the main Blackjack round flow.
-        Flow: Initial Deal -> Player Decision Loop -> Dealer Logic -> Winner Decision.
-        Communications: All cards and results are packed using 'pack_payload_server'.
         """
         game = BlackjackGame()
         player_hand = [game.draw_card(), game.draw_card()]
@@ -94,11 +87,8 @@ class Server:
         while player_sum <= 21:
             raw_decision = conn.recv(1024)
             # Format: Magic(4), Type(1), Decision(5)
-            _, _, decision_bytes = struct.unpack('>IB5s', raw_decision)
-            decision = decision_bytes.decode('utf-8').strip('\x00').strip()
-           
+            _, _, decision = PacketHandler.unpack_payload_client(raw_decision)
             if decision == "Stand": break
-           
             new_card = game.draw_card()
             player_hand.append(new_card)
             player_sum = BlackjackGame.calculate_total(player_hand)
