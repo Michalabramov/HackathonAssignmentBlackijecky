@@ -1,4 +1,4 @@
-from socket import AF_INET, SO_REUSEADDR, SO_REUSEPORT, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
+from socket import AF_INET, SO_REUSEADDR, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
 from PacketHandler import PacketHandler
 from BlackjackGame import BlackjackGame
 from Constants import Constants
@@ -41,10 +41,10 @@ class Client:
         with socket(AF_INET, SOCK_DGRAM) as udp_sock:
             # Enable port reuse to allow multiple clients on the same machine
             udp_sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-            try:
+
+            if hasattr(socket, "SO_REUSEPORT"):
                 udp_sock.setsockopt(SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            except AttributeError:
-                pass     
+
             # Bind to the broadcast port defined in the requirements
             udp_sock.bind(('', Constants.UDP_PORT))
             while True:
@@ -54,6 +54,18 @@ class Client:
                 if result:
                     port, name = result
                     return addr[0], port, name
+                
+    def recv_exactly(self, sock, n):
+        """
+        Helper function to ensure we read exactly n bytes from the TCP stream.
+        """
+        buffer = b''
+        while len(buffer) < n:
+            packet = sock.recv(n - len(buffer))
+            if not packet:
+                return None
+            buffer += packet
+        return buffer
 
     def play_game(self, ip, port, rounds):
         """
@@ -78,41 +90,52 @@ class Client:
             print(f"\nFinished playing {rounds} rounds, win rate: {win_rate}%")
 
     def run_round(self, sock):
-        """
-        Manages the communication flow for a single Blackjack round.
-        Decides whether to 'Hit' or 'Stand' based on current hand value.
-        """
         player_hand_sum = 0
-        
+        is_player_turn= True
+        cards_received = 0  # Counter to track initial deal (3 cards total)
+
         while True:
-            # Receive card or result payload from the server
-            data = sock.recv(1024)
-            if not data: break
-            
+            # READ EXACTLY 9 BYTES (Server Payload size)
+            data = self.recv_exactly(sock, 9)
+            if not data:
+                break
+        
             res, rank, suit = PacketHandler.unpack_payload_server(data)
-            
-            # Check if the round is still active
+            cards_received += 1
+        
             if res == Constants.ROUND_NOT_OVER:
-                # Calculate card value using the game logic rules
+                # Get the card value
                 card_val = BlackjackGame.get_card_value(rank)
-                player_hand_sum += card_val
-                print(f"Received card: Rank {rank}, Suit {suit}. Current sum: {player_hand_sum}")
-                
-                # Decision logic: Automatically 'Hit' until the sum reaches at least 17
-                if player_hand_sum < 17:
-                    decision = "Hittt"
+                # According to rules: First 2 cards are player's, 3rd is Dealer visible
+                if cards_received <= 2:
+                    player_hand_sum += card_val
+                    print(f"Received your card: Rank {rank}. Current sum: {player_hand_sum}")
+                    continue # Wait for more cards before deciding
+                elif cards_received == 3:
+                    print(f"Received dealer's visible card: Rank {rank}")
+                    # Now we have the full picture to make the first decision
                 else:
-                    decision = "Stand"
-                
-                print(f"Decision: {decision}")
-                # Send the decision back to the server using the client payload format
-                sock.sendall(PacketHandler.pack_payload_client(decision))
-                
-                if decision == "Stand":
-                    # Wait for the final result packet after choosing to Stand
-                    continue 
+                    if is_player_turn:
+                        # This is a card received after a 'Hit'
+                        player_hand_sum += card_val
+                        print(f"Received 'Hit' card: Rank {rank}. Current sum: {player_hand_sum}")
+                    else:
+                        print(f"Dealer drew a new card: {rank}")
+                if is_player_turn:
+                    if player_hand_sum > 21:
+                        print(f"You busted with {player_hand_sum}! Waiting for dealer...")
+                        is_player_turn = False
+                        # We don't send anything here, just wait for the dealer's reveals/result
+                    else:
+                        decision = "Hittt" if player_hand_sum < 17 else "Stand"
+                        print(f"Decision: {decision}")
+                        sock.sendall(PacketHandler.pack_payload_client(decision))
+                    
+                        if decision == "Stand":
+                            is_player_turn = False
+        
+            # 3. HANDLING THE RESULT (Round finished)
             else:
-                # The round has concluded; process the final result
                 if res == Constants.WIN: print("Result: YOU WIN!")
                 elif res == Constants.LOSS: print("Result: YOU LOSE!")
                 else: print("Result: IT'S A TIE!")

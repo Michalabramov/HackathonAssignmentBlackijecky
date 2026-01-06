@@ -57,7 +57,7 @@ class Server:
             conn.settimeout(10.0)
             data = conn.recv(1024)
             # Unpacking logic for Request (Magic, Type, Rounds, Name)
-            magic, m_type, rounds, client_name = PacketHandler.unpack_request(data)
+            rounds, client_name = PacketHandler.unpack_request(data)
             print(f"Connection established with team: {client_name}")
 
             for _ in range(rounds):
@@ -68,34 +68,57 @@ class Server:
         finally:
             conn.close()
 
+    def recv_exactly(self, conn, n):
+        """ Helper to read exactly n bytes from the TCP stream. """
+        buffer = b''
+        while len(buffer) < n:
+            packet = conn.recv(n - len(buffer))
+            if not packet: return None
+            buffer += packet
+        return buffer
+
+    def handle_player(self, conn: socket):
+        try:
+            conn.settimeout(10.0)
+            data = self.recv_exactly(conn, 38) # Adjusted for your pack_request format
+            if not data: return
+            rounds, client_name = PacketHandler.unpack_request(data)
+            print(f"Connection established with team: {client_name}")
+
+            for _ in range(rounds):
+                self.run_round(conn)
+        except Exception as e:
+            print(f"Session error: {e}")
+        finally:
+            conn.close()
+
     def run_round(self, conn: socket):
-        """
-        Implements the main Blackjack round flow.
-        """
         game = BlackjackGame()
         player_hand = [game.draw_card(), game.draw_card()]
         dealer_hand = [game.draw_card(), game.draw_card()]
 
-        # Initial Card Distribution
+        # Initial distribution
         for c in player_hand:
-            conn.send(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, c[0], c[1]))
-        # Dealer visible card
-        conn.send(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, dealer_hand[0][0], dealer_hand[0][1]))
+            conn.sendall(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, c[0], c[1]))
+        conn.sendall(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, dealer_hand[0][0], dealer_hand[0][1]))
 
-        # Player Turn Logic
         player_sum = BlackjackGame.calculate_total(player_hand)
         while player_sum <= 21:
-            raw_decision = conn.recv(1024)
-            # Format: Magic(4), Type(1), Decision(5)
-            _, _, decision = PacketHandler.unpack_payload_client(raw_decision)
-            if decision == "Stand": break
+            raw_decision = self.recv_exactly(conn, 10)
+            if not raw_decision: break
+            decision = PacketHandler.unpack_payload_client(raw_decision)
+           
+            if decision == "Stand":
+                break
+           
             new_card = game.draw_card()
             player_hand.append(new_card)
             player_sum = BlackjackGame.calculate_total(player_hand)
-            conn.send(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, new_card[0], new_card[1]))
+            conn.sendall(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, new_card[0], new_card[1]))
 
-        # Dealer Turn Logic (Only if player didn't bust)
-        conn.send(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, dealer_hand[1][0], dealer_hand[1][1]))
+        # Dealer logic and final results continue here...
+        # Ensure you send the dealer's hidden card before the final result!
+        conn.sendall(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, dealer_hand[1][0], dealer_hand[1][1]))
         dealer_sum = BlackjackGame.calculate_total(dealer_hand)
        
         if player_sum <= 21:

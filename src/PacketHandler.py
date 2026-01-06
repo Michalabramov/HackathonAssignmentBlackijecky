@@ -1,5 +1,5 @@
 import struct
-import Constants
+from Constants import Constants
 
 class PacketHandler:
     """
