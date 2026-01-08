@@ -99,6 +99,7 @@ class Client:
 
     def run_round(self, sock):
         player_hand_sum = 0
+        dealer_hand_sum = 0
         is_player_turn= True
         cards_received = 0  # Counter to track initial deal (3 cards total)
 
@@ -110,41 +111,51 @@ class Client:
         
             res, rank, suit = PacketHandler.unpack_payload_server(data)
             cards_received += 1
-        
+            card_name = BlackjackGame.get_card_name(rank, suit)
+            card_val = BlackjackGame.get_card_value(rank)
+
             if res == Constants.ROUND_NOT_OVER:
-                # Get the card value
-                card_val = BlackjackGame.get_card_value(rank)
                 # According to rules: First 2 cards are player's, 3rd is Dealer visible
                 if cards_received <= 2:
                     player_hand_sum += card_val
-                    print(f"Received your card: Rank {rank}. Current sum: {player_hand_sum}")
-                    continue # Wait for more cards before deciding
+                    print(f"🃏 You were dealt: {card_name}")
+
                 elif cards_received == 3:
-                    print(f"Received dealer's visible card: Rank {rank}")
+                    dealer_hand_sum += card_val
+                    print(f"🕵️  Dealer's visible card: {card_name}")
+                    print(f"📊 Current Status -> YOU: {player_hand_sum} | DEALER: {dealer_hand_sum}")
                     # Now we have the full picture to make the first decision
                 else:
                     if is_player_turn:
                         # This is a card received after a 'Hit'
                         player_hand_sum += card_val
-                        print(f"Received 'Hit' card: Rank {rank}. Current sum: {player_hand_sum}")
+                        print(f"➕ Hit! You drew: {card_name}")
                     else:
-                        print(f"Dealer drew a new card: {rank}")
-                if is_player_turn:
+                        dealer_hand_sum += card_val
+                        print(f"🏠 Dealer draws: {card_name}")
+                if is_player_turn and cards_received >= 3:
                     if player_hand_sum > 21:
-                        print(f"You busted with {player_hand_sum}! Waiting for dealer...")
+                        print(f"💥 BUST! Your sum ({player_hand_sum}) is over 21. Waiting for dealer...")
                         is_player_turn = False
                         # We don't send anything here, just wait for the dealer's reveals/result
                     else:
                         decision = "Hittt" if player_hand_sum < 17 else "Stand"
-                        print(f"Decision: {decision}")
+                        print(f"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+                        print(f"  Current Sum: {player_hand_sum} | Decision: {decision.upper()}")
+                        print(f"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
                         sock.sendall(PacketHandler.pack_payload_client(decision))
                     
                         if decision == "Stand":
                             is_player_turn = False
         
-            # 3. HANDLING THE RESULT (Round finished)
+            # HANDLING THE RESULT (Round finished)
             else:
-                if res == Constants.WIN: print("Result: YOU WIN!")
-                elif res == Constants.LOSS: print("Result: YOU LOSE!")
-                else: print("Result: IT'S A TIE!")
+                print("\n" + "="*30)
+                if res == Constants.WIN:
+                    print("\033[92m🏆 RESULT: YOU WIN! 💰\033[0m")
+                elif res == Constants.LOSS:
+                    print("\033[91m💀 RESULT: YOU LOSE! 💸\033[0m")
+                else:
+                    print("🤝 RESULT: IT'S A TIE! ⚖️")
+                print("="*30 + "\n")
                 return res
