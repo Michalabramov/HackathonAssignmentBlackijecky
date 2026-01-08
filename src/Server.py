@@ -135,20 +135,21 @@ class Server:
                 dealer_hand.append(c)
                 dealer_sum = BlackjackGame.calculate_total(dealer_hand)
                 conn.send(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, c[0], c[1]))
-
         # Final Evaluation
         res = Constants.TIE
-        if player_sum > 21: res = Constants.LOSS
-        elif dealer_sum > 21 or player_sum > dealer_sum: res = Constants.WIN
-        elif dealer_sum > player_sum: res = Constants.LOSS
-        else:
-            if player_sum == 21:
-                player_cards_count = len(player_hand)
-                dealer_cards_count = len(dealer_hand)
-               
-                if player_cards_count == 2 and dealer_cards_count > 2:
-                    res = Constants.WIN
-                elif dealer_cards_count == 2 and player_cards_count > 2:
-                    res = Constants.LOSS
+        if player_sum > 21: 
+            res = Constants.LOSS
+        elif dealer_sum > 21 or player_sum > dealer_sum: 
+            res = Constants.WIN
+            if player_sum == 21 and len(player_hand) == 2:
+                res = Constants.WIN_BLACKJACK
+                ranks = [c[0] for c in player_hand]
+                suits = [c[1] for c in player_hand]
+                
+                if (1 in ranks) and (11 in ranks): 
+                    if all(s in [0, 3] for s in suits):
+                        res = Constants.WIN_SUPER_BLACKJACK
+        elif dealer_sum > player_sum: 
+            res = Constants.LOSS
 
         conn.sendall(PacketHandler.pack_payload_server(res, 0, 0))
