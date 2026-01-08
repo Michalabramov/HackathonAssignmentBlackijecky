@@ -144,7 +144,7 @@ class Server:
                 c = game.draw_card()
                 dealer_hand.append(c)
                 dealer_sum = BlackjackGame.calculate_total(dealer_hand)
-                conn.send(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, c[0], c[1]))
+                conn.sendall(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, c[0], c[1]))
         # Final Evaluation
         res = Constants.TIE
         if player_sum > 21: 

@@ -110,6 +110,7 @@ class Client:
         self.total_rounds=0
         self.current_points = 0  
         with socket(AF_INET, SOCK_STREAM) as tcp_sock:
+            tcp_sock.settimeout(15.0)
             tcp_sock.connect((ip, port))
             # Send the initial request packet containing team name and round count
             request_packet = PacketHandler.pack_request(rounds, self.team_name)

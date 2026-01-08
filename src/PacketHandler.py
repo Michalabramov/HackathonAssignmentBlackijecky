@@ -90,4 +90,6 @@ class PacketHandler:
         Extracts the client's decision ("Hittt" or "Stand") from the packet.
         """
         magic, m_type, decision_bytes = struct.unpack('>IB5s', data)
+        if magic != Constants.MAGIC_COOKIE or m_type != Constants.PAYLOAD_TYPE:
+            raise ValueError("Invalid Client Payload Header")
         return decision_bytes.decode('utf-8').strip('\x00').strip()
