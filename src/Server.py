@@ -141,5 +141,14 @@ class Server:
         if player_sum > 21: res = Constants.LOSS
         elif dealer_sum > 21 or player_sum > dealer_sum: res = Constants.WIN
         elif dealer_sum > player_sum: res = Constants.LOSS
-       
+        else:
+            if player_sum == 21:
+                player_cards_count = len(player_hand)
+                dealer_cards_count = len(dealer_hand)
+               
+                if player_cards_count == 2 and dealer_cards_count > 2:
+                    res = Constants.WIN
+                elif dealer_cards_count == 2 and player_cards_count > 2:
+                    res = Constants.LOSS
+
         conn.sendall(PacketHandler.pack_payload_server(res, 0, 0))

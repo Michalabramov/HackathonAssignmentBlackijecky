@@ -94,18 +94,25 @@ class Client:
             # Send the initial request packet containing team name and round count
             request_packet = PacketHandler.pack_request(rounds, self.team_name)
             tcp_sock.sendall(request_packet)
-            current_wins = 0
             for r in range(rounds):
                 print(f"\n--- Round {r+1} ---")
                 result = self.run_round(tcp_sock)
                 if result == Constants.WIN:
-                    current_wins += 1
                     self.wins += 1
                 self.total_rounds += 1
             
-            # Print final statistics for the session
-            win_rate = (current_wins / rounds) * 100 if rounds > 0 else 0
-            print(f"\nFinished playing {rounds} rounds, win rate: {win_rate}%")
+                if r < rounds - 1:
+                    print("\n" + "┈" * 40)
+                    while True:
+                        prompt = input("👉 Type 'DEAL' to start the next round: ").strip().upper()
+                        if prompt == "DEAL":
+                            print("Great! Let's see what the cards hold...")
+                            break
+                        else:
+                            print("❌ Invalid input. Please type 'DEAL' to continue.")
+                    print("┈" * 40)
+            win_rate = (self.wins / self.total_rounds) * 100 if self.total_rounds > 0 else 0
+            print(f"\n🏆 Finished playing {self.total_rounds} rounds, win rate: {win_rate:.1f}%")
 
     def run_round(self, sock):
         player_hand = [] #list of (rank,suit) cards
@@ -178,12 +185,25 @@ class Client:
         
             # HANDLING THE RESULT (Round finished)
             else:
-                print("\n" + "="*30)
+                print("\n" + "="*40)
+               
+                final_sum = BlackjackGame.calculate_total(player_hand)
+                is_natural = (final_sum == 21 and len(player_hand) == 2)
+
                 if res == Constants.WIN:
-                    print("\033[92m🏆 RESULT: YOU WIN! 💰\033[0m")
+                    if is_natural:
+                        print("\033[1;92m🔥 🃏 BLACKJACK! 🃏 🔥\033[0m")
+                        print("\033[92m🏆 You won with a Natural 21! Pure skill! 🏆\033[0m")
+                    else:
+                        print("\033[92m🏆 RESULT: YOU WIN! 💰\033[0m")
+                       
                 elif res == Constants.LOSS:
+                    if final_sum == 21:
+                        print("\033[91m😱 UNBELIEVABLE! You had 21, but the Dealer had a Natural Blackjack!\033[0m")
                     print("\033[91m💀 RESULT: YOU LOSE! 💸\033[0m")
+               
                 else:
-                    print("🤝 RESULT: IT'S A TIE! ⚖️")
-                print("="*30 + "\n")
+                    print("\033[93m🤝 RESULT: IT'S A TIE! ⚖️\033[0m")
+               
+                print("="*40 + "\n")
                 return res
