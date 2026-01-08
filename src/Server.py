@@ -18,6 +18,7 @@ class Server:
         self.tcp_sock.listen(10) #how much? 15?
         self.is_active = True
         self.ip= gethostbyname(gethostname())
+        self.active_connections = []
 
     def get_local_ip(self):
         s = socket(AF_INET, SOCK_DGRAM)
@@ -39,14 +40,23 @@ class Server:
                 try:
                     # Accept incoming TCP connections from players
                     client_conn, addr = self.tcp_sock.accept()
+                    self.active_connections.append(client_conn)
                     threading.Thread(target=self.handle_player, args=(client_conn, ), daemon=True).start()
                 except Exception as e:
                     if self.is_active:
                         print(f"Server socket error: {e}")
         except KeyboardInterrupt:
-            print("\n\n🛑 Server is shutting down... Closing all sockets.")
-            self.is_active = False
-            self.tcp_sock.close()
+            print("\n🛑 Server is shutting down... Closing all sockets.")
+            self.is_active = False 
+            
+            for conn in self.active_connections:
+                try:
+                    conn.close() 
+                except:
+                    pass
+            
+            self.tcp_sock.close() 
+
 
     def broadcast_offers(self):
         """

@@ -131,7 +131,8 @@ class Client:
                 print(f"💰 Current Session Points: {self.current_points}")
 
                 if r < rounds - 1:
-                    if self.is_socket_closed(tcp_sock): raise ConnectionError("Server disconnected before next round.")  
+                    if self.is_socket_closed(tcp_sock): 
+                        raise ConnectionError("Server disconnected before next round.")  
                     print("\n" + "┈" * 40)
                     while True:
                         prompt = input("👉 Type 'DEAL' to start the next round: ").strip().upper()
@@ -184,6 +185,8 @@ class Client:
                 player_hand_sum = BlackjackGame.calculate_total(player_hand)
 
                 if is_player_turn and cards_received >= 3:
+                    if self.is_socket_closed(sock):
+                        raise ConnectionError("Server disconnected unexpectedly.")
                     print(f"📊 Current Status -> YOU: {player_hand_sum} | DEALER: {dealer_hand_sum}")
                     if player_hand_sum > 21:
                         print(f"💥 BUST! Your sum ({player_hand_sum}) is over 21. Waiting for dealer...")
@@ -198,6 +201,8 @@ class Client:
                         sock.sendall(PacketHandler.pack_payload_client(decision))
 
                     else:
+                        if self.is_socket_closed(sock):
+                            raise ConnectionError("Server disconnected while you were thinking...")
                         while True:
                             print(f"\n👉 Your current sum: {player_hand_sum}")
                             choice = input("Do you want to (H)it or (S)tand? ").strip().upper()
