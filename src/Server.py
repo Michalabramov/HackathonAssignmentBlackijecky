@@ -20,6 +20,17 @@ class Server:
         self.is_active = True
         self.ip= gethostbyname(gethostname())
 
+    def get_local_ip(self):
+        s = socket(AF_INET, SOCK_DGRAM)
+        try:
+            s.connect(('8.8.8.8', 1))
+            local_ip = s.getsockname()[0]
+        except Exception:
+            local_ip = '127.0.0.1'
+        finally:
+            s.close()
+        return local_ip
+
     def start(self):
         print(f"Server started, listening on IP address {self.ip}")
         # Start the UDP broadcasting thread (discovery)
@@ -38,35 +49,22 @@ class Server:
         """
         Broadcasts UDP packets every 1 second to announce server availability
         """
+        real_ip = self.get_local_ip()
+        prefix = '.'.join(real_ip.split('.')[:-1])
+        specific_broadcast = f"{prefix}.255"
+    
+        print(f"Server will broadcast on {specific_broadcast} (via {real_ip})")
+
         with socket(AF_INET, SOCK_DGRAM) as udp:
-            udp.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)  #to reach all clients on the local network
+            udp.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
             packet = PacketHandler.pack_offer(self.tcp_port, self.team_name)
             while self.is_active:
                 try:
-                    udp.sendto(packet, ('<broadcast>', Constants.UDP_PORT))
+                    udp.sendto(packet, (specific_broadcast, Constants.UDP_PORT))
                     time.sleep(1)
                 except Exception as e:
                     print(f"UDP broadcast error: {e}")
                     break
-
-    def handle_player(self, conn: socket):
-        """
-        Manages the game session for a single connected client.
-        """
-        try:
-            conn.settimeout(10.0)
-            data = conn.recv(1024)
-            # Unpacking logic for Request (Magic, Type, Rounds, Name)
-            rounds, client_name = PacketHandler.unpack_request(data)
-            print(f"Connection established with team: {client_name}")
-
-            for _ in range(rounds):
-                self.run_round(conn)
-           
-        except Exception as e:
-            print(f"Session error: {e}")
-        finally:
-            conn.close()
 
     def recv_exactly(self, conn, n):
         """ Helper to read exactly n bytes from the TCP stream. """
@@ -134,4 +132,4 @@ class Server:
         elif dealer_sum > 21 or player_sum > dealer_sum: res = Constants.WIN
         elif dealer_sum > player_sum: res = Constants.LOSS
        
-        conn.send(PacketHandler.pack_payload_server(res, 0, 0))
+        conn.sendall(PacketHandler.pack_payload_server(res, 0, 0))

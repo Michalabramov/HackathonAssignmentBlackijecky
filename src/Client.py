@@ -25,12 +25,15 @@ class Client:
                 # Establish TCP connection and execute the game logic
                 try:
                     # Request the number of rounds to play from the user
-                    rounds_to_play = int(input("How many rounds would you like to play? "))
+                    rounds_input = input("How many rounds would you like to play? ")
+                    if not rounds_input: continue
+                    rounds_to_play = int(rounds_input)
                     self.play_game(server_ip, server_port, rounds_to_play)
-                except ValueError:
-                    print("Invalid input, please enter a numeric value for rounds.")
+                except (ValueError, EOFError):
+                    print("Invalid input or session interrupted.")
                 except Exception as e:
-                    print(f"Error during game session: {e}")
+                    print(f"Connection lost or error: {e}")
+                    time.sleep(2)
                 # After finishing or an error, return to listening for offers
                 print(f"Client started, listening for offer requests...")
 
@@ -71,6 +74,9 @@ class Client:
         """
         Handles TCP communication, sends the initial game request, and loops through the specified number of rounds.
         """
+        self.wins=0
+        self.total_rounds=0
+
         with socket(AF_INET, SOCK_STREAM) as tcp_sock:
             tcp_sock.connect((ip, port))
             # Send the initial request packet containing team name and round count
@@ -98,7 +104,7 @@ class Client:
             # READ EXACTLY 9 BYTES (Server Payload size)
             data = self.recv_exactly(sock, 9)
             if not data:
-                break
+                raise ConnectionError("Server sidconnected during the round.")
         
             res, rank, suit = PacketHandler.unpack_payload_server(data)
             cards_received += 1
