@@ -138,11 +138,18 @@ class Client:
                         print(f"💥 BUST! Your sum ({player_hand_sum}) is over 21. Waiting for dealer...")
                         is_player_turn = False
                         # We don't send anything here, just wait for the dealer's reveals/result
+                    
+                    elif player_hand_sum == 21:
+                        print(f"\n✨ 🎉 21! PERFECT SCORE! 🎉 ✨")
+                        print(f"✨ Automatically standing... You're a pro! 😎 ✨")
+                        decision = "Stand"
+                        is_player_turn = False
+                        sock.sendall(PacketHandler.pack_payload_client(decision))
+
                     else:
                         while True:
                             print(f"\n👉 Your current sum: {player_hand_sum}")
                             choice = input("Do you want to (H)it or (S)tand? ").strip().upper()
-                            
                             if choice == 'H':
                                 decision = "Hittt" 
                                 break
@@ -152,14 +159,10 @@ class Client:
                                 break
                             else:
                                 print("❌ Invalid input! Please enter 'H' for Hit or 'S' for Stand.")
-
                         print(f"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
                         print(f"  Decision: {decision.upper()}  ")
                         print(f"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
                         sock.sendall(PacketHandler.pack_payload_client(decision))
-                    
-                        if decision == "Stand":
-                            is_player_turn = False
         
             # HANDLING THE RESULT (Round finished)
             else:

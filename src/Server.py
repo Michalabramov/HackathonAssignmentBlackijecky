@@ -77,7 +77,7 @@ class Server:
 
     def handle_player(self, conn: socket):
         try:
-            conn.settimeout(10.0)
+            conn.settimeout(60.0)
             data = self.recv_exactly(conn, 38) # Adjusted for your pack_request format
             if not data: return
             rounds, client_name = PacketHandler.unpack_request(data)
