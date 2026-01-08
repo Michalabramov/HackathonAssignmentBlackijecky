@@ -41,9 +41,13 @@ class Client:
                         self.play_game(server_ip, server_port, rounds_to_play)
                     except ValueError:
                         print("Invalid input, please enter a numeric value.")
+                    except (ConnectionAbortedError, ConnectionResetError):
+                        print("\n❌ Connection lost: The server closed the session (maybe a timeout?)")
+                        time.sleep(2) 
                     except Exception as e:
-                        print(f"Connection lost or error: {e}")
-                        time.sleep(2)
+                        print(f"\n⚠️  An unexpected error occurred: {e}")
+                        time.sleep(2) 
+
                     # After finishing or an error, return to listening for offers
                     print(f"Client started, listening for offer requests...")
         except KeyboardInterrupt:
@@ -76,10 +80,13 @@ class Client:
         """
         buffer = b''
         while len(buffer) < n:
-            packet = sock.recv(n - len(buffer))
-            if not packet:
+            try:
+                packet = sock.recv(n - len(buffer))
+                if not packet:
+                    return None
+                buffer += packet
+            except OSError: 
                 return None
-            buffer += packet
         return buffer
 
     def play_game(self, ip, port, rounds):
