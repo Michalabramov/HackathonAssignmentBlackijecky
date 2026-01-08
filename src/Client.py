@@ -3,6 +3,7 @@ from PacketHandler import PacketHandler
 from BlackjackGame import BlackjackGame
 from Constants import Constants
 import time
+import select
 
 class Client:
     def __init__(self, team_name: str):
@@ -88,6 +89,18 @@ class Client:
             except OSError: 
                 return None
         return buffer
+    
+    
+    def is_socket_closed(self, sock):
+        """
+        Checking if sok still open
+        """
+        readable, _, _ = select.select([sock], [], [], 0)
+        if readable:
+            data = sock.recv(1, socket.MSG_PEEK)
+            if not data:
+                return True
+        return False
 
     def play_game(self, ip, port, rounds):
         """
@@ -118,6 +131,7 @@ class Client:
                 print(f"💰 Current Session Points: {self.current_points}")
 
                 if r < rounds - 1:
+                    if self.is_socket_closed(tcp_sock): raise ConnectionError("Server disconnected before next round.")  
                     print("\n" + "┈" * 40)
                     while True:
                         prompt = input("👉 Type 'DEAL' to start the next round: ").strip().upper()

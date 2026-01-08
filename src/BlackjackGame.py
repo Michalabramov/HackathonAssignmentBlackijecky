@@ -48,7 +48,7 @@ class BlackjackGame:
         """
         Translates card number and suits into symbols
         """
-        suits_map = {0: "♣ (Clubs)", 1: "♦ (Diamonds)", 2: "♥ (Hearts)", 3: "♠ (Spades)"}
+        suits_map = {0: "♣", 1: "♦", 2: "♥", 3: "♠"}
         ranks_map = {1: "Ace", 11: "Jack", 12: "Queen", 13: "King"}
         card_rank = ranks_map.get(rank, str(rank))
         card_suit = suits_map.get(suit, "Unknown")
