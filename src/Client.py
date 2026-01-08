@@ -2,6 +2,8 @@ from socket import AF_INET, SO_REUSEADDR, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, s
 from PacketHandler import PacketHandler
 from BlackjackGame import BlackjackGame
 from Constants import Constants
+import time
+
 class Client:
     def __init__(self, team_name: str):
         """
