@@ -10,7 +10,7 @@ class BlackjackGame:
 
     def draw_card(self):
         return self.deck.pop() if self.deck else (1, 0)
-
+    
     @staticmethod
     def get_card_value(rank: int) -> int:
         """
@@ -23,7 +23,25 @@ class BlackjackGame:
 
     @classmethod
     def calculate_total(cls, hand: list) -> int:
-        return sum(cls.get_card_value(card[0]) for card in hand)
+        total = 0
+        aces = 0
+        
+        for card in hand:
+            rank = card[0]
+            if rank == 1: # Ace
+                aces += 1
+                total += 11
+            elif rank >= 10: # Face cards
+                total += 10
+            else:
+                total += rank
+        
+        #Ace's value can be 11 or 1 depends on the total sum 
+        while total > 21 and aces > 0:
+            total -= 10
+            aces -= 1
+            
+        return total
     
     @staticmethod
     def get_card_name(rank: int, suit: int) -> str:

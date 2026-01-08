@@ -50,6 +50,9 @@ class PacketHandler:
         # Decoding the 3-byte Card Value back into rank and suit
         rank = int(card_val[:2].decode())
         suit = card_val[2]
+        if res == Constants.ROUND_NOT_OVER:
+            if not (1 <= rank <= 13) or not (0 <= suit <= 3):
+                raise ValueError(f"❌ Malformed card data received: Rank {rank}, Suit {suit}")
         return res, rank, suit
     
     @staticmethod

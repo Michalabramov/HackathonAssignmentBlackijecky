@@ -18,26 +18,36 @@ class Client:
         Main client loop. Listens for UDP offers, connects to servers via TCP, and manages game sessions.
         """
         print(f"Client started, listening for offer requests...")
-        while True:
-            # Wait and listen for UDP broadcast offers from servers
-            offer_data = self.wait_for_offer()
-            if offer_data:
-                server_ip, server_port, server_name = offer_data
-                print(f"Received offer from {server_name} at {server_ip}, attempting to connect...")
-                # Establish TCP connection and execute the game logic
-                try:
-                    # Request the number of rounds to play from the user
-                    rounds_input = input("How many rounds would you like to play? ")
-                    if not rounds_input: continue
-                    rounds_to_play = int(rounds_input)
-                    self.play_game(server_ip, server_port, rounds_to_play)
-                except (ValueError, EOFError):
-                    print("Invalid input or session interrupted.")
-                except Exception as e:
-                    print(f"Connection lost or error: {e}")
-                    time.sleep(2)
-                # After finishing or an error, return to listening for offers
-                print(f"Client started, listening for offer requests...")
+        try:
+            while True:
+                # Wait and listen for UDP broadcast offers from servers
+                offer_data = self.wait_for_offer()
+                if offer_data:
+                    server_ip, server_port, server_name = offer_data
+                    print(f"Received offer from {server_name} at {server_ip}, attempting to connect...")
+                    # Establish TCP connection and execute the game logic
+                    try:
+                        # Request the number of rounds to play from the user
+                        rounds_input = input("How many rounds would you like to play?(Enter 0 to quit) ")
+                        if not rounds_input: continue
+                        rounds_to_play = int(rounds_input)
+                        if rounds_to_play <= 0:
+                            print("Closing connection and exiting as requested. Goodbye! 👋")
+                            break 
+                        if rounds_to_play > 50:
+                            print("⚠️  That's a lot of rounds! For server stability, we'll limit this session to 50.")
+                            rounds_to_play = 50
+
+                        self.play_game(server_ip, server_port, rounds_to_play)
+                    except ValueError:
+                        print("Invalid input, please enter a numeric value.")
+                    except Exception as e:
+                        print(f"Connection lost or error: {e}")
+                        time.sleep(2)
+                    # After finishing or an error, return to listening for offers
+                    print(f"Client started, listening for offer requests...")
+        except KeyboardInterrupt:
+            print("\n\n🛑 Ctrl+C detected. Exiting....")
 
     def wait_for_offer(self):
         """
@@ -98,6 +108,7 @@ class Client:
             print(f"\nFinished playing {rounds} rounds, win rate: {win_rate}%")
 
     def run_round(self, sock):
+        player_hand = [] #list of (rank,suit) cards
         player_hand_sum = 0
         dealer_hand_sum = 0
         is_player_turn= True
@@ -112,28 +123,29 @@ class Client:
             res, rank, suit = PacketHandler.unpack_payload_server(data)
             cards_received += 1
             card_name = BlackjackGame.get_card_name(rank, suit)
-            card_val = BlackjackGame.get_card_value(rank)
 
             if res == Constants.ROUND_NOT_OVER:
                 # According to rules: First 2 cards are player's, 3rd is Dealer visible
                 if cards_received <= 2:
-                    player_hand_sum += card_val
+                    player_hand.append((rank, suit))
                     print(f"🃏 You were dealt: {card_name}")
 
                 elif cards_received == 3:
-                    dealer_hand_sum += card_val
+                    dealer_hand_sum += BlackjackGame.get_card_value(rank)
                     print(f"🕵️  Dealer's visible card: {card_name}")
-                    print(f"📊 Current Status -> YOU: {player_hand_sum} | DEALER: {dealer_hand_sum}")
                     # Now we have the full picture to make the first decision
                 else:
                     if is_player_turn:
                         # This is a card received after a 'Hit'
-                        player_hand_sum += card_val
+                        player_hand.append((rank, suit))
                         print(f"➕ Hit! You drew: {card_name}")
                     else:
-                        dealer_hand_sum += card_val
+                        dealer_hand_sum += BlackjackGame.get_card_value(rank)
                         print(f"🏠 Dealer draws: {card_name}")
+                player_hand_sum = BlackjackGame.calculate_total(player_hand)
+
                 if is_player_turn and cards_received >= 3:
+                    print(f"📊 Current Status -> YOU: {player_hand_sum} | DEALER: {dealer_hand_sum}")
                     if player_hand_sum > 21:
                         print(f"💥 BUST! Your sum ({player_hand_sum}) is over 21. Waiting for dealer...")
                         is_player_turn = False

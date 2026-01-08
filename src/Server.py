@@ -1,5 +1,4 @@
-from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, gethostbyname, gethostname, socket
-import struct
+from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, gethostbyname, gethostname, socket, timeout
 import threading
 import time
 from PacketHandler import PacketHandler
@@ -35,15 +34,19 @@ class Server:
         print(f"Server started, listening on IP address {self.ip}")
         # Start the UDP broadcasting thread (discovery)
         threading.Thread(target=self.broadcast_offers, daemon=True).start()
-       
-        while self.is_active:
-            try:
-                # Accept incoming TCP connections from players
-                client_conn, addr = self.tcp_sock.accept()
-                threading.Thread(target=self.handle_player, args=(client_conn, ), daemon=True).start()
-            except Exception as e:
-                #Add if is active?
-                print(f"Server socket error: {e}")
+        try:
+            while self.is_active:
+                try:
+                    # Accept incoming TCP connections from players
+                    client_conn, addr = self.tcp_sock.accept()
+                    threading.Thread(target=self.handle_player, args=(client_conn, ), daemon=True).start()
+                except Exception as e:
+                    if self.is_active:
+                        print(f"Server socket error: {e}")
+        except KeyboardInterrupt:
+            print("\n\n🛑 Server is shutting down... Closing all sockets.")
+            self.is_active = False
+            self.tcp_sock.close()
 
     def broadcast_offers(self):
         """
@@ -81,14 +84,21 @@ class Server:
             data = self.recv_exactly(conn, 38) # Adjusted for your pack_request format
             if not data: return
             rounds, client_name = PacketHandler.unpack_request(data)
-            print(f"Connection established with team: {client_name}")
+            print(f"✅ Connection established with team: {client_name}")
 
             for _ in range(rounds):
                 self.run_round(conn)
+                
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            print(f"👋 Player '{client_name}' disconnected abruptly.")
+        except timeout:
+            print(f"⏰ Player '{client_name}' timed out (too slow to decide).")
         except Exception as e:
-            print(f"Session error: {e}")
+            print(f"⚠️  Unexpected session error with '{client_name}': {e}")
         finally:
             conn.close()
+            print(f"🔌 Connection closed for '{client_name}'")
+
 
     def run_round(self, conn: socket):
         game = BlackjackGame()
