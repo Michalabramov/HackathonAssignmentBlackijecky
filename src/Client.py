@@ -1,4 +1,4 @@
-from socket import AF_INET, SO_REUSEADDR, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
+from socket import AF_INET, SO_REUSEADDR, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, MSG_PEEK, socket
 from PacketHandler import PacketHandler
 from BlackjackGame import BlackjackGame
 from Constants import Constants
@@ -97,7 +97,7 @@ class Client:
         """
         readable, _, _ = select.select([sock], [], [], 0)
         if readable:
-            data = sock.recv(1, socket.MSG_PEEK)
+            data = sock.recv(1, MSG_PEEK)
             if not data:
                 return True
         return False
@@ -207,7 +207,7 @@ class Client:
                             print(f"\n👉 Your current sum: {player_hand_sum}")
                             choice = input("Do you want to (H)it or (S)tand? ").strip().upper()
                             if choice == 'H':
-                                decision = "Hittt" 
+                                decision = "Hittt"  
                                 break
                             elif choice == 'S':
                                 decision = "Stand"
