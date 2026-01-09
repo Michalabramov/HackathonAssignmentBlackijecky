@@ -124,15 +124,23 @@ class Server:
         while player_sum <= 21:
             raw_decision = self.recv_exactly(conn, 10)
             if not raw_decision: break
-            decision = PacketHandler.unpack_payload_client(raw_decision)
-           
-            if decision == "Stand":
+            try:
+                decision = PacketHandler.unpack_payload_client(raw_decision)
+            
+                if decision == "Stand":
+                    break
+                elif decision == "Hittt":
+                    new_card = game.draw_card()
+                    player_hand.append(new_card)
+                    player_sum = BlackjackGame.calculate_total(player_hand)
+                    conn.sendall(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, new_card[0], new_card[1]))
+                else:
+                    print(f"⚠️ Invalid decision received: {decision}")
+                    break 
+            except ValueError as e:
+                print(f"❌ Protocol Error: {e}")
                 break
-           
-            new_card = game.draw_card()
-            player_hand.append(new_card)
-            player_sum = BlackjackGame.calculate_total(player_hand)
-            conn.sendall(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, new_card[0], new_card[1]))
+
 
         # Dealer logic and final results continue here...
         # Ensure you send the dealer's hidden card before the final result!

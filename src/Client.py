@@ -30,8 +30,11 @@ class Client:
                     try:
                         # Request the number of rounds to play from the user
                         rounds_input = input("How many rounds would you like to play?(Enter 0 to quit) ")
-                        if not rounds_input: continue
-                        rounds_to_play = int(rounds_input)
+                        try:
+                            rounds_to_play = int(rounds_input)
+                        except ValueError:
+                            print("❌ Invalid input: Please enter a numeric value for rounds.")
+                            continue                
                         if rounds_to_play <= 0:
                             print("Closing connection and exiting as requested. Goodbye! 👋")
                             break 
@@ -40,8 +43,6 @@ class Client:
                             rounds_to_play = 50
 
                         self.play_game(server_ip, server_port, rounds_to_play)
-                    except ValueError:
-                        print("Invalid input, please enter a numeric value.")
                     except (ConnectionAbortedError, ConnectionResetError):
                         print("\n❌ Connection lost: The server closed the session (maybe a timeout?)")
                         time.sleep(2) 
@@ -160,8 +161,11 @@ class Client:
             data = self.recv_exactly(sock, 9)
             if not data:
                 raise ConnectionError("Server sidconnected during the round.")
-        
-            res, rank, suit = PacketHandler.unpack_payload_server(data)
+            try:
+                res, rank, suit = PacketHandler.unpack_payload_server(data)
+            except ValueError as e:
+                print(f"\n❌ Protocol Error: Received corrupted data from server ({e})")
+                raise 
             cards_received += 1
             card_name = BlackjackGame.get_card_name(rank, suit)
 

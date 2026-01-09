@@ -92,4 +92,6 @@ class PacketHandler:
         magic, m_type, decision_bytes = struct.unpack('>IB5s', data)
         if magic != Constants.MAGIC_COOKIE or m_type != Constants.PAYLOAD_TYPE:
             raise ValueError("Invalid Client Payload Header")
+        if m_type != Constants.PAYLOAD_TYPE:
+            raise ValueError("Invalid Payload Type from client")
         return decision_bytes.decode('utf-8').strip('\x00').strip()
