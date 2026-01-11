@@ -59,21 +59,17 @@ class Server:
 
 
     def broadcast_offers(self):
-        """
-        Broadcasts UDP packets every 1 second to announce server availability
-        """
         real_ip = self.get_local_ip()
-        prefix = '.'.join(real_ip.split('.')[:-1])
-        specific_broadcast = f"{prefix}.255"
+        specific_broadcast = '<broadcast>'
     
-        print(f"Server will broadcast on {specific_broadcast} (via {real_ip})")
+        print(f"📡 Server is broadcasting on ALL available interfaces (via {real_ip})")
 
         with socket(AF_INET, SOCK_DGRAM) as udp:
             udp.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-            packet = PacketHandler.pack_offer(self.tcp_port, self.team_name)
+            packet = PacketHandler.pack_offer(self.tcp_port, self.team_name) #
             while self.is_active:
                 try:
-                    udp.sendto(packet, (specific_broadcast, Constants.UDP_PORT))
+                    udp.sendto(packet, (specific_broadcast, Constants.UDP_PORT)) #
                     time.sleep(1)
                 except Exception as e:
                     print(f"UDP broadcast error: {e}")
