@@ -121,9 +121,9 @@ class Client:
                 result = self.run_round(tcp_sock)
                 if result == Constants.WIN:
                     self.wins += 1
-
-                if result == Constants.WIN:
                     self.current_points += 1
+                elif result == Constants.LOSS:
+                    self.current_points -= 1
                 elif result == Constants.WIN_BLACKJACK:
                     self.current_points += 2
                 elif result == Constants.WIN_SUPER_BLACKJACK:
