@@ -27,34 +27,34 @@ class PacketHandler:
             return None
         return None
 
-
     @staticmethod
     def pack_payload_server(result: int, rank: int, suit: int) -> bytes:
         """
         Packs the server's response containing game result and card details
         """
-        rank_part = str(rank).zfill(2).encode() # 2 bytes ASCII
-        suit_part = struct.pack('B', suit)      # 1 byte binary
-        card_value = rank_part + suit_part      # 3 bytes total        
-        return struct.pack('>IBB3s', Constants.MAGIC_COOKIE, Constants.PAYLOAD_TYPE, result, card_value)
-    
+        return struct.pack('!I B B H B', Constants.MAGIC_COOKIE, Constants.PAYLOAD_TYPE ,result, rank, suit)
+
     @staticmethod
     def unpack_payload_server(data: bytes):
         """
         Extracts results and card data from the server's binary payload.
         """
-        magic, m_type, res, card_val = struct.unpack('>IBB3s', data)
+        expected_len = struct.calcsize('!I B B H B')
+        if len(data) != expected_len:
+            raise ValueError(f"Invalid payload length: got {len(data)}, expected {expected_len}")
+        magic, m_type, res, rank, suit = struct.unpack('!I B B H B', data)
         if magic != Constants.MAGIC_COOKIE:
             raise ValueError("Invalid Magic Cookie received")
-       
-        # Decoding the 3-byte Card Value back into rank and suit
-        rank = int(card_val[:2].decode())
-        suit = card_val[2]
-        if res == Constants.ROUND_NOT_OVER:
-            if not (1 <= rank <= 13) or not (0 <= suit <= 3):
-                raise ValueError(f"❌ Malformed card data received: Rank {rank}, Suit {suit}")
+        if m_type != Constants.PAYLOAD_TYPE:
+            raise ValueError("Invalid Payload Type from server")
+        if rank != 0:
+            if not (1 <= rank <= 13):
+                raise ValueError(f"❌ Malformed card data received: Rank {rank}")
+            if not (0 <= suit <= 3):
+                raise ValueError(f"❌ Malformed card data received: Suit {suit}")
+
         return res, rank, suit
-    
+
     @staticmethod
     def pack_request(rounds: int, team_name: str) -> bytes:
         """

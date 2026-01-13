@@ -89,7 +89,11 @@ class Server:
             conn.settimeout(60.0)
             data = self.recv_exactly(conn, 38) # Adjusted for your pack_request format
             if not data: return
-            rounds, client_name = PacketHandler.unpack_request(data)
+            unpacked = PacketHandler.unpack_request(data)
+            if not unpacked:
+                print("❌ Invalid request packet received. Closing connection.")
+                return
+            rounds, client_name = unpacked
             print(f"✅ Connection established with team: {client_name}")
 
             for _ in range(rounds):
@@ -137,9 +141,11 @@ class Server:
                 print(f"❌ Protocol Error: {e}")
                 break
 
-
-        # Dealer logic and final results continue here...
-        # Ensure you send the dealer's hidden card before the final result!
+         # If player busted, they lose immediately (no dealer turn)
+        if player_sum > 21:
+            conn.sendall(PacketHandler.pack_payload_server(Constants.LOSS, 0, 0))
+            return
+        # Dealer logic and final results
         conn.sendall(PacketHandler.pack_payload_server(Constants.ROUND_NOT_OVER, dealer_hand[1][0], dealer_hand[1][1]))
         dealer_sum = BlackjackGame.calculate_total(dealer_hand)
        

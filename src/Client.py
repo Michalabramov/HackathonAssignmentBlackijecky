@@ -1,4 +1,5 @@
 from socket import AF_INET, SO_REUSEADDR, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, MSG_PEEK, socket
+import socket as socket_module
 from PacketHandler import PacketHandler
 from BlackjackGame import BlackjackGame
 from Constants import Constants
@@ -65,8 +66,8 @@ class Client:
             # Enable port reuse to allow multiple clients on the same machine
             udp_sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 
-            if hasattr(socket, "SO_REUSEPORT"):
-                udp_sock.setsockopt(SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            if hasattr(socket_module, "SO_REUSEPORT"):
+                udp_sock.setsockopt(SOL_SOCKET, socket_module.SO_REUSEPORT, 1)
 
             # Bind to the broadcast port defined in the requirements
             udp_sock.bind(('', Constants.UDP_PORT))
@@ -145,7 +146,7 @@ class Client:
             win_rate = (self.wins / self.total_rounds) * 100 if self.total_rounds > 0 else 0
             print(f"\n🏆 Session Summary:")
             print(f"📊 Win Rate: {win_rate:.1f}% ({self.wins}/{self.total_rounds} rounds)")
-            print(f"✨ Total Points Earned: {self.current_points}")
+            print(f"✨ Total Points Earned: {self.current_points}") 
 
 
     def run_round(self, sock):

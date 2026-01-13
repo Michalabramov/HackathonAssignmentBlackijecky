@@ -25,7 +25,7 @@ def main():
         return
 
     mode = sys.argv[1].lower()
-    team_name = sys.argv[2] if len(sys.argv) > 2 else "Joker"  #default????????
+    team_name = sys.argv[2] if len(sys.argv) > 2 else "unknown"  #default
 
     print_banner()
 
