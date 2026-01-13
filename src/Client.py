@@ -4,6 +4,7 @@ from BlackjackGame import BlackjackGame
 from Constants import Constants
 import time
 import select
+from UI import UI
 
 class Client:
     def __init__(self, team_name: str):
@@ -13,6 +14,7 @@ class Client:
         self.team_name = team_name
         self.wins = 0
         self.total_rounds = 0
+        self.current_points = 0
 
     def start(self):
         """
@@ -107,34 +109,28 @@ class Client:
         """
         Handles TCP communication, sends the initial game request, and loops through the specified number of rounds.
         """
-        self.wins=0
-        self.total_rounds=0
+        self.wins = 0
+        self.total_rounds = 0
         self.current_points = 0  
+
         with socket(AF_INET, SOCK_STREAM) as tcp_sock:
             tcp_sock.settimeout(15.0)
             tcp_sock.connect((ip, port))
+
             # Send the initial request packet containing team name and round count
             request_packet = PacketHandler.pack_request(rounds, self.team_name)
             tcp_sock.sendall(request_packet)
+
             for r in range(rounds):
                 print(f"\n--- Round {r+1} ---")
-                result = self.run_round(tcp_sock)
-                if result == Constants.WIN:
-                    self.wins += 1
-                    self.current_points += 1
-                elif result == Constants.LOSS:
-                    self.current_points -= 1
-                elif result == Constants.WIN_BLACKJACK:
-                    self.current_points += 2
-                elif result == Constants.WIN_SUPER_BLACKJACK:
-                    self.current_points += 10
-                    print("🔥 ⚡ SUPER BLACKJACK! +10 POINTS! ⚡ 🔥")
-                self.total_rounds += 1
-                print(f"💰 Current Session Points: {self.current_points}")
+                result = self.run_round(tcp_sock)  # include updates points and wins internally
+                self.total_rounds += 1 
 
                 if r < rounds - 1:
-                    if self.is_socket_closed(tcp_sock): 
-                        raise ConnectionError("Server disconnected before next round.")  
+                    if self.is_socket_closed(tcp_sock):
+                        raise ConnectionError("Server disconnected before next round.")
+
+                    # Prompt user to start the next round
                     print("\n" + "┈" * 40)
                     while True:
                         prompt = input("👉 Type 'DEAL' to start the next round: ").strip().upper()
@@ -144,109 +140,91 @@ class Client:
                         else:
                             print("❌ Invalid input. Please type 'DEAL' to continue.")
                     print("┈" * 40)
+
+            # Session summary
             win_rate = (self.wins / self.total_rounds) * 100 if self.total_rounds > 0 else 0
             print(f"\n🏆 Session Summary:")
             print(f"📊 Win Rate: {win_rate:.1f}% ({self.wins}/{self.total_rounds} rounds)")
             print(f"✨ Total Points Earned: {self.current_points}")
 
+
     def run_round(self, sock):
-        player_hand = [] #list of (rank,suit) cards
-        player_hand_sum = 0
-        dealer_hand_sum = 0
-        is_player_turn= True
-        cards_received = 0  # Counter to track initial deal (3 cards total)
+        """
+        Manages a single round of blackjack
+        """
+        player_hand = []
+        dealer_hand = []
+        is_player_turn = True
+        cards_received = 0
 
         while True:
-            # READ EXACTLY 9 BYTES (Server Payload size)
-            data = self.recv_exactly(sock, 9)
+            data = self.recv_exactly(sock, 9) #READ EXACTLY 9 BYTES (Server Payload size)
             if not data:
-                raise ConnectionError("Server sidconnected during the round.")
+                raise ConnectionError("Server disconnected during round")
             try:
                 res, rank, suit = PacketHandler.unpack_payload_server(data)
             except ValueError as e:
                 print(f"\n❌ Protocol Error: Received corrupted data from server ({e})")
-                raise 
+                raise
             cards_received += 1
-            card_name = BlackjackGame.get_card_name(rank, suit)
-
             if res == Constants.ROUND_NOT_OVER:
-                # According to rules: First 2 cards are player's, 3rd is Dealer visible
                 if cards_received <= 2:
                     player_hand.append((rank, suit))
-                    print(f"🃏 You were dealt: {card_name}")
-
                 elif cards_received == 3:
-                    dealer_hand_sum += BlackjackGame.get_card_value(rank)
-                    print(f"🕵️  Dealer's visible card: {card_name}")
-                    # Now we have the full picture to make the first decision
+                    dealer_hand.append((rank, suit))
                 else:
                     if is_player_turn:
-                        # This is a card received after a 'Hit'
                         player_hand.append((rank, suit))
-                        print(f"➕ Hit! You drew: {card_name}")
                     else:
-                        dealer_hand_sum += BlackjackGame.get_card_value(rank)
-                        print(f"🏠 Dealer draws: {card_name}")
-                player_hand_sum = BlackjackGame.calculate_total(player_hand)
-
+                        dealer_hand.append((rank, suit))
+                # Draw table, hide dealer card if player's turn
+                UI.draw_table(player_hand, dealer_hand,hide_dealer=is_player_turn)
+                player_sum = BlackjackGame.calculate_total(player_hand)
                 if is_player_turn and cards_received >= 3:
-                    if self.is_socket_closed(sock):
-                        raise ConnectionError("Server disconnected unexpectedly.")
-                    print(f"📊 Current Status -> YOU: {player_hand_sum} | DEALER: {dealer_hand_sum}")
-                    if player_hand_sum > 21:
-                        print(f"💥 BUST! Your sum ({player_hand_sum}) is over 21. Waiting for dealer...")
+                    if player_sum > 21:
                         is_player_turn = False
-                        # We don't send anything here, just wait for the dealer's reveals/result
-                    
-                    elif player_hand_sum == 21:
+                    elif player_sum == 21:
                         print(f"\n✨ 🎉 21! PERFECT SCORE! 🎉 ✨")
                         print(f"✨ Automatically standing... You're a pro! 😎 ✨")
-                        decision = "Stand"
+                        sock.sendall(PacketHandler.pack_payload_client("Stand"))
                         is_player_turn = False
-                        sock.sendall(PacketHandler.pack_payload_client(decision))
-
                     else:
-                        if self.is_socket_closed(sock):
-                            raise ConnectionError("Server disconnected while you were thinking...")
                         while True:
-                            print(f"\n👉 Your current sum: {player_hand_sum}")
-                            choice = input("Do you want to (H)it or (S)tand? ").strip().upper()
+                            choice = input("\n(H)it or (S)tand? ").strip().upper()
                             if choice == 'H':
-                                decision = "Hittt"  
+                                sock.sendall(PacketHandler.pack_payload_client("Hittt"))
                                 break
                             elif choice == 'S':
-                                decision = "Stand"
+                                sock.sendall(PacketHandler.pack_payload_client("Stand"))
                                 is_player_turn = False
                                 break
                             else:
                                 print("❌ Invalid input! Please enter 'H' for Hit or 'S' for Stand.")
-                        print(f"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
-                        print(f"  Decision: {decision.upper()}  ")
-                        print(f"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
-                        sock.sendall(PacketHandler.pack_payload_client(decision))
-        
-            # HANDLING THE RESULT (Round finished)
             else:
-                print("\n" + "="*40)
-               
-                final_sum = BlackjackGame.calculate_total(player_hand)
-                is_natural = (final_sum == 21 and len(player_hand) == 2)
+                # Update wins and points
+                if res == Constants.WIN:
+                    self.wins += 1
+                    self.current_points += 1
+                    print("\n🏆 YOU WIN! (+1 point)")
 
-                if res in [Constants.WIN, Constants.WIN_BLACKJACK, Constants.WIN_SUPER_BLACKJACK]:
-                    if is_natural:
-                        print("\033[1;92m🔥 🃏 BLACKJACK! 🃏 🔥\033[0m")
-                        print("\033[92m🏆 You won with a Natural 21! Pure skill! 🏆\033[0m")
-                    else:
-                        print("\033[92m🏆 RESULT: YOU WIN! 💰\033[0m")       
+                elif res == Constants.WIN_BLACKJACK:
+                    self.wins += 1
+                    self.current_points += 2
+                    print("\n🔥 BLACKJACK! (+2 points)")
+
+                elif res == Constants.WIN_SUPER_BLACKJACK:
+                    self.wins += 1
+                    self.current_points += 10
+                    print("\n⚡🔥 SUPER BLACKJACK! (+10 points)")
+
                 elif res == Constants.LOSS:
-                    if final_sum == 21:
-                        print("\033[91m😱 UNBELIEVABLE! You had 21, but the Dealer had a Natural Blackjack!\033[0m")
-                    print("\033[91m💀 RESULT: YOU LOSE! 💸\033[0m")
-               
+                    self.current_points -= 1
+                    print("\n💀 YOU LOSE! (-1 point)")
+
                 else:
-                    print("\033[93m🤝 RESULT: IT'S A TIE! ⚖️\033[0m")
-               
-                print("="*40 + "\n")
+                    print("\n🤝 TIE! (0 points)")
+
+                print(f"💰 Current Points: {self.current_points}")
+                print("=" * 40)
+
                 return res
-
-
