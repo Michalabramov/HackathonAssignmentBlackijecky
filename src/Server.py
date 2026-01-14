@@ -15,7 +15,7 @@ class Server:
         self.tcp_sock = socket(AF_INET, SOCK_STREAM)
         self.tcp_sock.bind(('', 0)) # Bind to any free port provided by the OS
         self.tcp_port = self.tcp_sock.getsockname()[1]
-        self.tcp_sock.listen(10) #how much? 15?
+        self.tcp_sock.listen(10) #how many clients 
         self.is_active = True
         self.ip= gethostbyname(gethostname())
         self.active_connections = []
@@ -41,7 +41,7 @@ class Server:
                     # Accept incoming TCP connections from players
                     client_conn, addr = self.tcp_sock.accept()
                     self.active_connections.append(client_conn)
-                    threading.Thread(target=self.handle_player, args=(client_conn, ), daemon=True).start()
+                    threading.Thread(target=self.handle_player, args=(client_conn, ), daemon=True).start() #if the main program closed, the thread will not prevent exit
                 except Exception as e:
                     if self.is_active:
                         print(f"Server socket error: {e}")
@@ -85,6 +85,7 @@ class Server:
         return buffer
 
     def handle_player(self, conn: socket):
+        client_name= "Unknown"
         try:
             conn.settimeout(60.0)
             data = self.recv_exactly(conn, 38) # Adjusted for your pack_request format
